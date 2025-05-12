@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3人用リバーシ</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            width: 400px; /* ボードの幅に合わせるか、調整 */
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .player-info {
+            text-align: center;
+        }
+
+        .player-info .stone-display {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        .player1-stone { background-color: black; }
+        .player2-stone { background-color: white; border: 1px solid #ccc; } /* 白は見えにくいので枠線 */
+        .player3-stone { background-color: red; }
+
+        #current-turn {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .board-container {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            width: 400px;
+            height: 400px;
+            border: 2px solid #333;
+            background-color: green; /* リバーシ盤の色 */
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #555; /* マス目の線 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-sizing: border-box; /* borderを含めてサイズ計算 */
+        }
+
+        .cell:hover {
+            background-color: lightgreen;
+        }
+
+        .stone {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1>3人用リバーシ</h1>
+
+    <div id="current-turn">
+        現在のターン: プレイヤー1
+    </div>
+
+    <div class="game-info">
+        <div class="player-info" id="player1-info">
+            プレイヤー1: <span class="stone-display player1-stone"></span><span id="player1-score">2</span>
+        </div>
+        <div class="player-info" id="player2-info">
+            プレイヤー2: <span class="stone-display player2-stone"></span><span id="player2-score">2</span>
+        </div>
+        <div class="player-info" id="player3-info">
+            プレイヤー3: <span class="stone-display player3-stone"></span><span id="player3-score">2</span>
+        </div>
+    </div>
+
+    <div class="board-container" id="board">
+        <!-- JavaScriptでセルを生成 -->
+    </div>
+
+    <script>
+        const BOARD_SIZE = 8;
+        const EMPTY = 0;
+        const PLAYER1 = 1; // 黒
+        const PLAYER2 = 2; // 白
+        const PLAYER3 = 3; // 赤
+
+        let board = [];
+        let currentPlayer = PLAYER1;
+        let scores = {
+            [PLAYER1]: 0,
+            [PLAYER2]: 0,
+            [PLAYER3]: 0
+        };
+
+        const boardElement = document.getElementById('board');
+        const player1ScoreElement = document.getElementById('player1-score');
+        const player2ScoreElement = document.getElementById('player2-score');
+        const player3ScoreElement = document.getElementById('player3-score');
+        const currentTurnElement = document.getElementById('current-turn');
+
+        // 盤面の初期化と描画
+        function initializeBoard() {
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(EMPTY));
+            boardElement.innerHTML = ''; // 既存のセルをクリア
+
+            // 初期配置 (3人用のアレンジ)
+            // 標準的なリバーシの初期配置に3色目を追加する例
+            board[3][3] = PLAYER1;
+            board[4][4] = PLAYER1;
+            board[3][4] = PLAYER2;
+            board[4][3] = PLAYER2;
+            board[2][2] = PLAYER3; // 例: 左上に追加
+            board[5][5] = PLAYER3; // 例: 右下に追加
+
+            renderBoard();
+            updateScores();
+            updateTurnDisplay();
+        }
+
+        // 盤面を描画
+        function renderBoard() {
+            boardElement.innerHTML = ''; // 既存のセルをクリア
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+
+                    if (board[r][c] !== EMPTY) {
+                        const stone = document.createElement('div');
+                        stone.classList.add('stone');
+                        if (board[r][c] === PLAYER1) {
+                            stone.classList.add('player1-stone');
+                        } else if (board[r][c] === PLAYER2) {
+                            stone.classList.add('player2-stone');
+                        } else if (board[r][c] === PLAYER3) {
+                            stone.classList.add('player3-stone');
+                        }
+                        cell.appendChild(stone);
+                    }
+                    cell.addEventListener('click', handleCellClick);
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        // スコアを計算して更新
+        function updateScores() {
+            scores[PLAYER1] = 0;
+            scores[PLAYER2] = 0;
+            scores[PLAYER3] = 0;
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === PLAYER1) scores[PLAYER1]++;
+                    else if (board[r][c] === PLAYER2) scores[PLAYER2]++;
+                    else if (board[r][c] === PLAYER3) scores[PLAYER3]++;
+                }
+            }
+            player1ScoreElement.textContent = scores[PLAYER1];
+            player2ScoreElement.textContent = scores[PLAYER2];
+            player3ScoreElement.textContent = scores[PLAYER3];
+        }
+
+        // 現在のターン表示を更新
+        function updateTurnDisplay() {
+            let playerName = '';
+            if (currentPlayer === PLAYER1) playerName = 'プレイヤー1 (黒)';
+            else if (currentPlayer === PLAYER2) playerName = 'プレイヤー2 (白)';
+            else if (currentPlayer === PLAYER3) playerName = 'プレイヤー3 (赤)';
+            currentTurnElement.textContent = `現在のターン: ${playerName}`;
+        }
+
+        // 次のプレイヤーにターンを移す
+        function switchPlayer() {
+            if (currentPlayer === PLAYER1) {
+                currentPlayer = PLAYER2;
+            } else if (currentPlayer === PLAYER2) {
+                currentPlayer = PLAYER3;
+            } else {
+                currentPlayer = PLAYER1;
+            }
+            // TODO: パス処理の追加 (置ける場所がない場合)
+        }
+
+        // 指定された場所に石を置いた場合にひっくり返せる石のリストを取得
+        function getFlippableStones(row, col, player) {
+            const flippable = [];
+            if (board[row][col] !== EMPTY) {
+                return flippable; // すでに石がある場所には置けない
+            }
+
+            const directions = [
+                [-1, -1], [-1, 0], [-1, 1], // 上3方向
+                [0, -1],           [0, 1],  // 左、右
+                [1, -1], [1, 0], [1, 1]   // 下3方向
+            ];
+
+            for (const [dr, dc] of directions) {
+                let r = row + dr;
+                let c = col + dc;
+                const stonesInDirection = [];
+
+                // 盤面内で、隣が相手の石である限り進む
+                // 相手の石は、自分の石(player)でもなく、空(EMPTY)でもない石
+                while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE &&
+                       board[r][c] !== EMPTY && board[r][c] !== player) {
+                    stonesInDirection.push({ r, c });
+                    r += dr;
+                    c += dc;
+                }
+
+                // 進んだ先が自分の石であれば、間の石はひっくり返せる
+                if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE &&
+                    board[r][c] === player && stonesInDirection.length > 0) {
+                    flippable.push(...stonesInDirection);
+                }
+            }
+            return flippable;
+        }
+
+        // セルがクリックされたときの処理
+        function handleCellClick(event) {
+            // イベントが発生した要素が .cell でない場合 (石をクリックした場合など) は、親の .cell をターゲットにする
+            const targetCell = event.target.classList.contains('cell') ? event.target : event.target.closest('.cell');
+            if (!targetCell) return;
+
+            const row = parseInt(targetCell.dataset.row);
+            const col = parseInt(targetCell.dataset.col);
+
+            if (isNaN(row) || isNaN(col)) return; // 無効なセルデータ
+
+            if (board[row][col] !== EMPTY) {
+                console.log("既に石が置かれています。");
+                return;
+            }
+
+            const flippableStones = getFlippableStones(row, col, currentPlayer);
+
+            if (flippableStones.length === 0) {
+                console.log("ここには置けません (ひっくり返せる石がありません)。");
+                return;
+            }
+
+            // 石を置く
+            board[row][col] = currentPlayer;
+            // 石をひっくり返す
+            flippableStones.forEach(stone => {
+                board[stone.r][stone.c] = currentPlayer;
+            });
+
+            renderBoard();
+            updateScores();
+            switchPlayer();
+            updateTurnDisplay();
+            // TODO: ゲーム終了判定
+            // TODO: パス判定と連続パスによるゲーム終了
+        }
+
+        // ゲーム開始
+        initializeBoard();
+
+    </script>
+</body>
+</html>
