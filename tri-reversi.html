@@ -50,6 +50,8 @@
             margin-bottom: 15px;
             font-size: 1.2em;
             font-weight: bold;
+            text-align: center;
+            min-height: 60px; /* ターン表示とパス表示用に高さを確保 */
         }
         #reset-button {
             margin-top: 15px;
@@ -61,6 +63,13 @@
             color: white;
             border: none;
             border-radius: 5px;
+        }
+
+        #game-result-area {
+            margin-top: 15px;
+            width: 400px; /* ボードの幅に合わせるか、調整 */
+            min-height: 150px; /* 結果表示用に十分な高さを確保 */
+            text-align: center;
         }
 
         .board-container {
@@ -121,6 +130,8 @@
 
     <button id="reset-button">ゲームをリセット</button>
 
+    <div id="game-result-area"></div>
+
     <script>
         const BOARD_SIZE = 8;
         const EMPTY = 0;
@@ -131,8 +142,6 @@
         let board = [];
         let currentPlayer = PLAYER1;
         let scores = {
-            // scores オブジェクトのキーは数値なので、ブラケット記法は必須ではないが、
-            // PLAYER1 などの定数を使う場合はこの方が明確
             [PLAYER1]: 0,
             [PLAYER2]: 0,
             [PLAYER3]: 0
@@ -144,6 +153,7 @@
         const player3ScoreElement = document.getElementById('player3-score');
         const currentTurnElement = document.getElementById('current-turn');
         const resetButton = document.getElementById('reset-button');
+        const gameResultAreaElement = document.getElementById('game-result-area');
 
         let gameEnded = false;
         let consecutivePasses = 0;
@@ -157,41 +167,28 @@
             boardElement.innerHTML = ''; // 既存のセルをクリア
 
             // 初期配置 (3人用のアレンジ)
-            // 標準的なリバーシの初期配置に3色目を追加する例
             board[3][3] = PLAYER1;
             board[4][4] = PLAYER1;
             board[3][4] = PLAYER2;
             board[4][3] = PLAYER2;
-            board[2][2] = PLAYER3; // 例: 左上に追加
-            board[5][5] = PLAYER3; // 例: 右下に追加
+            board[2][2] = PLAYER3;
+            board[5][5] = PLAYER3;
 
-            currentTurnElement.innerHTML = ''; // 既存のメッセージ(結果表示など)をクリア
+            currentTurnElement.innerHTML = ''; // 既存のメッセージ(パス表示など)をクリア
+            gameResultAreaElement.innerHTML = ''; // ゲーム結果表示エリアをクリア
             renderBoard();
             updateScores();
-            updateTurnDisplay();
+            updateTurnDisplay(); // これで初期のターン表示に戻る
 
-            // 最初のプレイヤーがプレイ可能かチェック
             if (!canPlayerPlay(currentPlayer)) {
-                console.log(`初期状態でプレイヤー ${currentPlayer} はパスします。`);
-                // パスメッセージ表示は changeToNextPlayerAndHandlePass に任せるので、ここでは直接表示しない
-                // ただし、連続パスのカウントは必要
-                // consecutivePasses++; // これは changeToNextPlayerAndHandlePass で処理される
-                // 最初のプレイヤーがパスする場合、changeToNextPlayerAndHandlePass を呼び出す
-                // 連続パスのカウントは changeToNextPlayerAndHandlePass 内で行う
-                currentTurnElement.appendChild(passMessageElement);
-                setTimeout(() => {
-                    if (currentTurnElement.contains(passMessageElement)) {
-                        currentTurnElement.removeChild(passMessageElement);
-                    }
-                }, 2000);
-                consecutivePasses++;
-                setTimeout(changeToNextPlayerAndHandlePass, 50); // 少し遅延させて次のプレイヤーへ
+                console.log(`初期状態でプレイヤー ${currentPlayer} (${getPlayerColorName(currentPlayer)}) はパスします。`);
+                setTimeout(changeToNextPlayerAndHandlePass, 50);
             }
         }
 
         // 盤面を描画
         function renderBoard() {
-            boardElement.innerHTML = ''; // 既存のセルをクリア
+            boardElement.innerHTML = '';
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
                     const cell = document.createElement('div');
@@ -236,11 +233,19 @@
 
         // 現在のターン表示を更新
         function updateTurnDisplay() {
-            if (gameEnded && currentTurnElement.querySelector('h2')) return; // ゲーム終了メッセージ表示中は更新しない
+            // パスメッセージ用の要素があれば削除
+            let passMessages = currentTurnElement.querySelectorAll('.pass-message');
+            passMessages.forEach(msg => msg.remove());
+
+            if (gameEnded) {
+                currentTurnElement.textContent = 'ゲーム終了';
+                return;
+            }
+
             let playerName = '';
-            if (currentPlayer === PLAYER1) playerName = 'プレイヤー1 (黒)';
-            else if (currentPlayer === PLAYER2) playerName = 'プレイヤー2 (白)';
-            else if (currentPlayer === PLAYER3) playerName = 'プレイヤー3 (赤)';
+            if (currentPlayer === PLAYER1) playerName = `プレイヤー1 (${getPlayerColorName(PLAYER1)})`;
+            else if (currentPlayer === PLAYER2) playerName = `プレイヤー2 (${getPlayerColorName(PLAYER2)})`;
+            else if (currentPlayer === PLAYER3) playerName = `プレイヤー3 (${getPlayerColorName(PLAYER3)})`;
             currentTurnElement.textContent = `現在のターン: ${playerName}`;
         }
 
@@ -250,21 +255,21 @@
                 for (let c = 0; c < BOARD_SIZE; c++) {
                     if (board[r][c] === EMPTY) {
                         if (getFlippableStones(r, c, player).length > 0) {
-                            return true; // 置ける場所が見つかった
+                            return true;
                         }
                     }
                 }
             }
-            return false; // 置ける場所がない
+            return false;
         }
 
         // ゲーム終了処理
         function endGame(message) {
-            if (gameEnded) return; // 二重呼び出し防止
+            if (gameEnded) return;
             gameEnded = true;
             console.log("Game Over:", message);
 
-            updateScores(); // 最終スコアを計算
+            updateScores();
 
             const s1 = scores[PLAYER1];
             const s2 = scores[PLAYER2];
@@ -275,7 +280,7 @@
                 { player: PLAYER3, name: `プレイヤー3 (${getPlayerColorName(PLAYER3)})`, score: s3 }
             ];
 
-            allScores.sort((a, b) => b.score - a.score); // スコアで降順ソート
+            allScores.sort((a, b) => b.score - a.score);
 
             let resultText = `<h2>ゲーム終了！</h2><p>${message}</p><strong>結果:</strong><ul style="list-style: none; padding-left: 0;">`;
             allScores.forEach(p => {
@@ -283,18 +288,19 @@
             });
             resultText += `</ul>`;
 
-            if (allScores[0].score > allScores[1].score) { // 単独一位
+            if (allScores[0].score > allScores[1].score) {
                 resultText += `<p><strong>${allScores[0].name} の勝ち！</strong></p>`;
-            } else { // 同点一位がいる場合
+            } else {
                 const topScore = allScores[0].score;
                 const winners = allScores.filter(p => p.score === topScore);
                 if (winners.length > 1) {
                     resultText += `<p><strong>${winners.map(w => w.name).join(" と ")} の引き分け！</strong></p>`;
-                } else { // このケースは通常発生しないはずだが念のため
+                } else {
                      resultText += `<p><strong>${winners[0].name} の勝ち！</strong></p>`;
                 }
             }
-            currentTurnElement.innerHTML = resultText;
+            gameResultAreaElement.innerHTML = resultText;
+            updateTurnDisplay(); // currentTurnElement を "ゲーム終了" に更新
         }
 
         function getPlayerColorName(player) {
@@ -317,21 +323,16 @@
                 }
             }
 
-            // 条件1: 盤面がすべて埋まった
             if (emptyCells === 0) {
                 endGame("盤面がすべて埋まりました！");
                 return true;
             }
 
-            // 条件2: 3人連続パス
             if (consecutivePasses >= 3) {
                 endGame("3人連続でパスしました！");
                 return true;
             }
 
-            // 条件3: 盤面に空きはあるが、誰も石を置ける場所がない
-            // (このチェックは連続パスのロジックでカバーされることが多いが、念のため)
-            // consecutivePasses が 3 に達していなくても、全プレイヤーが手詰まりの場合
             if (emptyCells > 0 && !canPlayerPlay(PLAYER1) && !canPlayerPlay(PLAYER2) && !canPlayerPlay(PLAYER3)) {
                 endGame("誰も石を置ける場所がありません！");
                 return true;
@@ -345,13 +346,13 @@
         function getFlippableStones(row, col, player) {
             const flippable = [];
             if (board[row][col] !== EMPTY) {
-                return flippable; // すでに石がある場所には置けない
+                return flippable;
             }
 
             const directions = [
-                [-1, -1], [-1, 0], [-1, 1], // 上3方向
-                [0, -1],           [0, 1],  // 左、右
-                [1, -1], [1, 0], [1, 1]   // 下3方向
+                [-1, -1], [-1, 0], [-1, 1],
+                [0, -1],           [0, 1],
+                [1, -1], [1, 0], [1, 1]
             ];
 
             for (const [dr, dc] of directions) {
@@ -359,8 +360,6 @@
                 let c = col + dc;
                 const stonesInDirection = [];
 
-                // 盤面内で、隣が相手の石である限り進む
-                // 相手の石は、自分の石(player)でもなく、空(EMPTY)でもない石
                 while (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE &&
                        board[r][c] !== EMPTY && board[r][c] !== player) {
                     stonesInDirection.push({ r, c });
@@ -368,7 +367,6 @@
                     c += dc;
                 }
 
-                // 進んだ先が自分の石であれば、間の石はひっくり返せる
                 if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE &&
                     board[r][c] === player && stonesInDirection.length > 0) {
                     flippable.push(...stonesInDirection);
@@ -379,16 +377,15 @@
 
         // セルがクリックされたときの処理
         function handleCellClick(event) {
-            if (gameEnded) return; // ゲーム終了後は操作不可
+            if (gameEnded) return;
 
-            // イベントが発生した要素が .cell でない場合 (石をクリックした場合など) は、親の .cell をターゲットにする
             const targetCell = event.target.classList.contains('cell') ? event.target : event.target.closest('.cell');
             if (!targetCell) return;
 
             const row = parseInt(targetCell.dataset.row);
             const col = parseInt(targetCell.dataset.col);
 
-            if (isNaN(row) || isNaN(col)) return; // 無効なセルデータ
+            if (isNaN(row) || isNaN(col)) return;
 
             if (board[row][col] !== EMPTY) {
                 console.log("既に石が置かれています。");
@@ -402,30 +399,27 @@
                 return;
             }
 
-            // 石を置く
             board[row][col] = currentPlayer;
-            // 石をひっくり返す
             flippableStones.forEach(stone => {
                 board[stone.r][stone.c] = currentPlayer;
             });
 
-            consecutivePasses = 0; // 石を置いたのでパス回数をリセット
+            consecutivePasses = 0;
 
             renderBoard();
             updateScores();
 
-            if (checkGameEnd()) { // 盤面が埋まったかなどの終了条件をチェック
-                return; // ゲーム終了ならここで終わり
+            if (checkGameEnd()) {
+                return;
             }
 
-            setTimeout(changeToNextPlayerAndHandlePass, 50); // 少し遅延させて次のプレイヤーの処理へ
+            setTimeout(changeToNextPlayerAndHandlePass, 50);
         }
 
         // 次のプレイヤーに手番を移し、パス処理を行う
         function changeToNextPlayerAndHandlePass() {
             if (gameEnded) return;
 
-            // 次のプレイヤーに
             if (currentPlayer === PLAYER1) currentPlayer = PLAYER2;
             else if (currentPlayer === PLAYER2) currentPlayer = PLAYER3;
             else currentPlayer = PLAYER1;
@@ -438,19 +432,20 @@
                 passMessageElement.textContent = `プレイヤー ${currentPlayer} (${getPlayerColorName(currentPlayer)}) はパスしました。`;
                 passMessageElement.style.color = 'orange';
                 passMessageElement.style.fontSize = '0.8em';
+                passMessageElement.classList.add('pass-message');
                 currentTurnElement.appendChild(passMessageElement);
-                setTimeout(() => { // 一定時間後にメッセージを消す
+
+                setTimeout(() => {
                     if (currentTurnElement.contains(passMessageElement)) {
                         currentTurnElement.removeChild(passMessageElement);
                     }
                 }, 2000);
 
                 consecutivePasses++;
-                if (checkGameEnd()) return; // 連続パスによる終了などをチェック
+                if (checkGameEnd()) return;
 
-                setTimeout(changeToNextPlayerAndHandlePass, 50); // 再帰的に次のプレイヤーのパスチェック
+                setTimeout(changeToNextPlayerAndHandlePass, 50);
             }
-            // 置ける場合は何もしない（ユーザーのクリックを待つ）
         }
 
         // リセットボタンのイベントリスナー
