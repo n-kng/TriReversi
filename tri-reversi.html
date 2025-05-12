@@ -51,6 +51,17 @@
             font-size: 1.2em;
             font-weight: bold;
         }
+        #reset-button {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
 
         .board-container {
             display: grid;
@@ -108,6 +119,8 @@
         <!-- JavaScriptでセルを生成 -->
     </div>
 
+    <button id="reset-button">ゲームをリセット</button>
+
     <script>
         const BOARD_SIZE = 8;
         const EMPTY = 0;
@@ -130,6 +143,7 @@
         const player2ScoreElement = document.getElementById('player2-score');
         const player3ScoreElement = document.getElementById('player3-score');
         const currentTurnElement = document.getElementById('current-turn');
+        const resetButton = document.getElementById('reset-button');
 
         let gameEnded = false;
         let consecutivePasses = 0;
@@ -139,6 +153,7 @@
             board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(EMPTY));
             gameEnded = false;
             consecutivePasses = 0;
+            currentPlayer = PLAYER1; // 常にプレイヤー1から開始
             boardElement.innerHTML = ''; // 既存のセルをクリア
 
             // 初期配置 (3人用のアレンジ)
@@ -150,6 +165,7 @@
             board[2][2] = PLAYER3; // 例: 左上に追加
             board[5][5] = PLAYER3; // 例: 右下に追加
 
+            currentTurnElement.innerHTML = ''; // 既存のメッセージ(結果表示など)をクリア
             renderBoard();
             updateScores();
             updateTurnDisplay();
@@ -157,10 +173,11 @@
             // 最初のプレイヤーがプレイ可能かチェック
             if (!canPlayerPlay(currentPlayer)) {
                 console.log(`初期状態でプレイヤー ${currentPlayer} はパスします。`);
-                const passMessageElement = document.createElement('div');
-                passMessageElement.textContent = `プレイヤー ${currentPlayer} はパスしました。`;
-                passMessageElement.style.color = 'orange';
-                passMessageElement.style.fontSize = '0.8em';
+                // パスメッセージ表示は changeToNextPlayerAndHandlePass に任せるので、ここでは直接表示しない
+                // ただし、連続パスのカウントは必要
+                // consecutivePasses++; // これは changeToNextPlayerAndHandlePass で処理される
+                // 最初のプレイヤーがパスする場合、changeToNextPlayerAndHandlePass を呼び出す
+                // 連続パスのカウントは changeToNextPlayerAndHandlePass 内で行う
                 currentTurnElement.appendChild(passMessageElement);
                 setTimeout(() => {
                     if (currentTurnElement.contains(passMessageElement)) {
@@ -168,7 +185,7 @@
                     }
                 }, 2000);
                 consecutivePasses++;
-                setTimeout(changeToNextPlayerAndHandlePass, 100); // 少し遅延させて次のプレイヤーへ
+                setTimeout(changeToNextPlayerAndHandlePass, 50); // 少し遅延させて次のプレイヤーへ
             }
         }
 
@@ -219,6 +236,7 @@
 
         // 現在のターン表示を更新
         function updateTurnDisplay() {
+            if (gameEnded && currentTurnElement.querySelector('h2')) return; // ゲーム終了メッセージ表示中は更新しない
             let playerName = '';
             if (currentPlayer === PLAYER1) playerName = 'プレイヤー1 (黒)';
             else if (currentPlayer === PLAYER2) playerName = 'プレイヤー2 (白)';
@@ -434,6 +452,9 @@
             }
             // 置ける場合は何もしない（ユーザーのクリックを待つ）
         }
+
+        // リセットボタンのイベントリスナー
+        resetButton.addEventListener('click', initializeBoard);
 
         // ゲーム開始
         initializeBoard();
